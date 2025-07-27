@@ -7,40 +7,24 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-routing-machine';
+import RoutingMachine from './RoutingMachine';
 import PlaceSearchInput from './PlaceSearchInput';
+import location from '../assets/location.png';
+import locationPin from '../assets/locationPin.png';
+import markerIcon from '../assets/markerIcon.png';
 
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-shadow.png',
-});
 
 const MapCenterer = ({ position }) => {
+  
   const map = useMap();
+  
   useEffect(() => {
-    if (position) map.setView([position.lat, position.lng], 14);
+    if (position) 
+      map.flyTo([position.lat, position.lng], 14, {
+        animate: true,
+        duration: 1.5, // seconds
+      });
   }, [position, map]);
-  return null;
-};
-
-const RoutingMachine = ({ current, target }) => {
-  const map = useMap();
-  const routingRef = useRef(null);
-
-  useEffect(() => {
-    if (!map || !current || !target) return;
-    if (routingRef.current) routingRef.current.remove();
-
-    routingRef.current = L.Routing.control({
-      waypoints: [L.latLng(current.lat, current.lng), L.latLng(target.lat, target.lng)],
-      routeWhileDragging: false,
-      show: false,
-      addWaypoints: false,
-    }).addTo(map);
-
-    return () => routingRef.current?.remove();
-  }, [current, target, map]);
-
   return null;
 };
 
@@ -72,6 +56,7 @@ export default function MapComponent() {
   const travelWatchId = useRef(null);
   const simulationRef = useRef(null);
 
+  //get the current location on initial
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -141,7 +126,7 @@ export default function MapComponent() {
     const path = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
 
     const steps = path.length;
-    const interval = 5000 / steps;
+    const interval = 5000 / steps ;
     let i = 0;
     simulationRef.current = setInterval(() => {
       if (i >= steps) {
@@ -184,13 +169,22 @@ export default function MapComponent() {
       {current ? (
         <MapContainer center={[current.lat, current.lng]} zoom={13} style={{ height: '100%' }}>
           <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[current.lat, current.lng]} />
-          {target && <Marker position={[target.lat, target.lng]} />}
+          
+          <Marker position={[current.lat, current.lng]} icon={L.icon({
+                iconUrl: location,
+                iconSize: [32, 32],
+              })}/>
+          
+          {target && <Marker position={[target.lat, target.lng]} icon={L.icon({
+                iconUrl: locationPin,
+                iconSize: [32, 32],
+          })} />}
+          
           {travelMarkerPos && (
             <Marker
               position={[travelMarkerPos.lat, travelMarkerPos.lng]}
               icon={L.icon({
-                iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                iconUrl: markerIcon,
                 iconSize: [32, 32],
               })}
             />
