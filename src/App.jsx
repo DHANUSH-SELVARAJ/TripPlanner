@@ -1,11 +1,15 @@
 import './App.css'
-import MapComponent from './components/MapComponent'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import LoginPage from './Pages/LoginPage';
+import MapPage from './Pages/MapPage';
 
-function App() {
+export default function App() {
   return (
-  <>
-  <MapComponent/>
-  </> )
+    <Router>
+      <Routes>
+        <Route path="/" element={<LoginPage />} />
+        <Route path="/map" element={<MapPage />} />
+      </Routes>
+    </Router>
+  )
 }
-
-export default App

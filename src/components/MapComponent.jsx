@@ -74,6 +74,11 @@ export default function MapComponent() {
     );
   }, []);
 
+
+    // Inside your component
+  const user = JSON.parse(sessionStorage.getItem('user'));
+  const userPhoto = user?.picture;
+
   const handleFind = (location) => {
     setTarget(location);
     setShouldRoute(false);
@@ -141,7 +146,7 @@ export default function MapComponent() {
   };
 
   return (
-    <div className="relative w-full h-screen" style={{ height: '100%' }}>
+    <div className="relative w-full h-screen" style={{ height: '100vh' }}>
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-white p-4 rounded shadow-md w-96 space-y-2">
         {isRouting && (
           <PlaceSearchInput label="Edit origin..." onFind={handleTempOriginChange} defaultValue={defaultCurrent} />
@@ -170,11 +175,20 @@ export default function MapComponent() {
         <MapContainer center={[current.lat, current.lng]} zoom={13} style={{ height: '100%' }}>
           <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           
-          <Marker position={[current.lat, current.lng]} icon={L.icon({
-                iconUrl: location,
-                iconSize: [32, 32],
-              })}/>
-          
+          <div style={{
+
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            border: '2px solid white',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
+          }}>
+            <Marker position={[current.lat, current.lng]} icon={L.icon({
+                  iconUrl: userPhoto,
+                  iconSize: [32, 32],
+                })}/>
+          </div>
           {target && <Marker position={[target.lat, target.lng]} icon={L.icon({
                 iconUrl: locationPin,
                 iconSize: [32, 32],
@@ -184,7 +198,7 @@ export default function MapComponent() {
             <Marker
               position={[travelMarkerPos.lat, travelMarkerPos.lng]}
               icon={L.icon({
-                iconUrl: markerIcon,
+                iconUrl: userPhoto,
                 iconSize: [32, 32],
               })}
             />
