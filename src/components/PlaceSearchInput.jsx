@@ -98,7 +98,7 @@ const fetchSuggestions = async (query) => {
     styles={{
       container: (base) => ({
         ...base,
-        width: '390px', // fixed width here, change as needed
+        width: '100%', // fixed width here, change as needed
       }),
       menu: (base) => ({
         ...base,

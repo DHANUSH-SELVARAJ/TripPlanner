@@ -1,36 +1,31 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  useMap,
-} from 'react-leaflet';
+import React, { useEffect, useRef, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMap} from 'react-leaflet';
 import L from 'leaflet';
-import 'leaflet-routing-machine';
+import { useSelector, useDispatch } from 'react-redux';
 import RoutingMachine from './RoutingMachine';
-import PlaceSearchInput from './PlaceSearchInput';
-import location from '../assets/location.png';
 import locationPin from '../assets/locationPin.png';
-import markerIcon from '../assets/markerIcon.png';
 
-
+// Center map when target changes
 const MapCenterer = ({ position }) => {
-  
   const map = useMap();
-  
+
   useEffect(() => {
-    if (position) 
+    if (position)
       map.flyTo([position.lat, position.lng], 14, {
         animate: true,
         duration: 1.5, // seconds
       });
   }, [position, map]);
+
   return null;
 };
 
+// Reverse geocode function unchanged, could also move to Redux thunk if needed
 const reverseGeocode = async ({ lat, lng }) => {
   try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+    );
     const data = await res.json();
     return {
       lat,
@@ -45,26 +40,33 @@ const reverseGeocode = async ({ lat, lng }) => {
 };
 
 export default function MapComponent() {
-  const [current, setCurrent] = useState(null);
-  const [defaultCurrent, setDefaultCurrent] = useState(null);
-  const [target, setTarget] = useState(null);
-  const [shouldRoute, setShouldRoute] = useState(false);
-  const [isRouting, setIsRouting] = useState(false);
+  const dispatch = useDispatch();
+
+  // Get state from redux
+  const current = useSelector((state) => state.map.current);
+  const defaultCurrent = useSelector((state) => state.map.defaultCurrent);
+  const target = useSelector((state) => state.map.target);
+  const shouldRoute = useSelector((state) => state.map.shouldRoute);
+  const isRouting = useSelector((state) => state.map.isRouting);
+  const routePath = useSelector(state => state.map.routePath);
+
+  // Local states for travel and simulation tracking
   const [isTraveling, setIsTraveling] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [travelMarkerPos, setTravelMarkerPos] = useState(null);
+
   const travelWatchId = useRef(null);
   const simulationRef = useRef(null);
 
-  //get the current location on initial
+  // On mount, get current location and dispatch to redux
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const resolved = await reverseGeocode(coords);
         if (resolved) {
-          setCurrent(resolved);
-          setDefaultCurrent(resolved);
+          dispatch({ type: 'map/setCurrent', payload: resolved });
+          dispatch({ type: 'map/setDefaultCurrent', payload: resolved });
         }
       },
       (err) => {
@@ -72,30 +74,29 @@ export default function MapComponent() {
         alert('Could not get your current location.');
       }
     );
-  }, []);
+  }, [dispatch]);
 
-
-    // Inside your component
+  // User photo from session
   const user = JSON.parse(sessionStorage.getItem('user'));
   const userPhoto = user?.picture;
 
-  const handleFind = (location) => {
-    setTarget(location);
-    setShouldRoute(false);
-    setIsRouting(false);
+  // Functions previously used inside component, now dispatch to redux
+  const resetOrigin = () => {
+    dispatch({ type: 'map/setCurrent', payload: defaultCurrent });
   };
 
   const handleDirection = () => {
     if (!current || !target) return alert('Set both origin and destination.');
-    setShouldRoute(true);
-    setIsRouting(true);
+    dispatch({ type: 'map/setShouldRoute', payload: true });
+    dispatch({ type: 'map/setIsRouting', payload: true });
   };
 
-  const handleTempOriginChange = (pos) => setCurrent(pos);
-  const resetOrigin = () => {
-    setCurrent(defaultCurrent)
+  const isSameLocation = (loc1, loc2) => {
+    if (!loc1 || !loc2) return false;
+    return loc1.lat === loc2.lat && loc1.lng === loc2.lng;
   };
 
+  // Travel handlers
   const handleStartTravel = () => {
     if (!navigator.geolocation) return alert('Geolocation not supported');
 
@@ -124,120 +125,79 @@ export default function MapComponent() {
     setTravelMarkerPos(null);
   };
 
- const simulateTravel = async () => {
-  if (!current || !target) return alert('Set both origin and destination.');
-  setSimulating(true);
+  // Travel simulation logic unchanged
+  const simulateTravel = async () => {
+    if (!current || !target) return alert('Set both origin and destination.');
+    setSimulating(true);
 
-  const res = await fetch(
-    `https://router.project-osrm.org/route/v1/driving/${current.lng},${current.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`
-  );
-  const data = await res.json();
+    const res = await fetch(
+      `https://router.project-osrm.org/route/v1/driving/${current.lng},${current.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`
+    );
+    const data = await res.json();
 
-  const fullPath = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+    const fullPath = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
 
-  // Sample a max of 20 steps
-  const maxSteps = 20;
-  const totalSteps = fullPath.length;
-  const stepInterval = Math.max(1, Math.floor(totalSteps / maxSteps));
+    // Sample max 20 steps
+    const maxSteps = 20;
+    const totalSteps = fullPath.length;
+    const stepInterval = Math.max(1, Math.floor(totalSteps / maxSteps));
 
-  const sampledPath = [];
-  for (let i = 0; i < totalSteps; i += stepInterval) {
-    sampledPath.push(fullPath[i]);
-  }
-
-  // Ensure the last point is included (destination)
-  if (sampledPath[sampledPath.length - 1] !== fullPath[totalSteps - 1]) {
-    sampledPath.push(fullPath[totalSteps - 1]);
-  }
-
-  let i = 0;
-  const interval = 500; // milliseconds between each simulated move
-  simulationRef.current = setInterval(() => {
-    if (i >= sampledPath.length) {
-      clearInterval(simulationRef.current);
-      simulationRef.current = null;
-      setSimulating(false);
-    } else {
-      setTravelMarkerPos(sampledPath[i]);
-      i++;
+    const sampledPath = [];
+    for (let i = 0; i < totalSteps; i += stepInterval) {
+      sampledPath.push(fullPath[i]);
     }
-  }, interval);
-};
+    // Ensure last point
+    if (sampledPath[sampledPath.length - 1] !== fullPath[totalSteps - 1]) {
+      sampledPath.push(fullPath[totalSteps - 1]);
+    }
 
-  const isSameLocation = (loc1, loc2) => {
-  if (!loc1 || !loc2) return false;
-  return loc1.lat === loc2.lat && loc1.lng === loc2.lng;
+    let i = 0;
+    const interval = 500;
+    simulationRef.current = setInterval(() => {
+      if (i >= sampledPath.length) {
+        clearInterval(simulationRef.current);
+        simulationRef.current = null;
+        setSimulating(false);
+      } else {
+        setTravelMarkerPos(sampledPath[i]);
+        i++;
+      }
+    }, interval);
   };
-  
+
   return (
     <div className="relative w-full h-screen" style={{ height: '100vh' }}>
-      <div style={{zIndex:999}} className="absolute top-4 right-4 z-50 space-y-2">
-        {isRouting && (
-          <PlaceSearchInput
-            label="Edit origin..."
-            onFind={handleTempOriginChange}
-            defaultValue={current}
-          />
-        )}
+      {/* Removed buttons from here - buttons should be handled in sidebar */}
 
-        <PlaceSearchInput
-          label="Search destination..."
-          onFind={handleFind}
-          defaultValue={target}
-        />
-
-                
-
-        <div className="flex flex-wrap justify-center gap-2">
-          <button onClick={handleDirection} className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Get Directions</button>
-
-          {isRouting && (
-            <button
-              onClick={resetOrigin}
-              disabled={isSameLocation(current, defaultCurrent)}
-              className={`px-4 py-1 rounded text-white
-                ${isSameLocation(current, defaultCurrent)
-                  ? 'bg-gray-300 cursor-not-allowed'
-                  : 'bg-gray-400 hover:bg-gray-500'}`}
-            >
-              Your Location
-            </button>
-          )}
-          {!isTraveling && !simulating && (
-            <button onClick={handleStartTravel} className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Start Travel</button>
-          )}
-          {(isTraveling || simulating) && (
-            <button onClick={stopTravel} className="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600">Stop Travel</button>
-          )}
-          {!simulating && !isTraveling && (
-            <button onClick={simulateTravel} className="bg-purple-600 text-white px-4 py-1 rounded hover:bg-purple-700">Simulate Travel</button>
-          )}
-        </div>
-      </div>
-
+      {/* Show map only if current position available */}
       {current ? (
         <MapContainer center={[current.lat, current.lng]} zoom={13} style={{ height: '100%' }}>
-          <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          
-          <div style={{
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
-            overflow: 'hidden',
-            border: '2px solid white',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.3)'
-          }}>
-            <Marker position={[current.lat, current.lng]} icon={L.icon({
-                  iconUrl: userPhoto,
-                  iconSize: [32, 32],
-                })}/>
-          </div>
-          {target && <Marker position={[target.lat, target.lng]} icon={L.icon({
+          {/* Current position marker */}
+          <Marker
+            position={[current.lat, current.lng]}
+            icon={L.icon({
+              iconUrl: userPhoto,
+              iconSize: [32, 32],
+            })}
+          />
+
+          {/* Target position marker */}
+          {target && (
+            <Marker
+              position={[target.lat, target.lng]}
+              icon={L.icon({
                 iconUrl: locationPin,
                 iconSize: [32, 32],
-          })} />}
-          
+              })}
+            />
+          )}
+
+          {/* Marker for live travel position */}
           {travelMarkerPos && (
             <Marker
               position={[travelMarkerPos.lat, travelMarkerPos.lng]}
@@ -247,11 +207,17 @@ export default function MapComponent() {
               })}
             />
           )}
+
+          {/* Fly map to target */}
           {target && <MapCenterer position={target} />}
+
+          {/* Routing if needed */}
           {shouldRoute && <RoutingMachine current={current} target={target} />}
         </MapContainer>
       ) : (
-        <div className="flex justify-center items-center h-full text-gray-600">Getting current location...</div>
+        <div className="flex justify-center items-center h-full text-gray-600">
+          Getting current location...
+        </div>
       )}
     </div>
   );
