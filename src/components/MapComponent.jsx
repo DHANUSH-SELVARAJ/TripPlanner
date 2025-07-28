@@ -92,7 +92,9 @@ export default function MapComponent() {
   };
 
   const handleTempOriginChange = (pos) => setCurrent(pos);
-  const resetOrigin = () => setCurrent(defaultCurrent);
+  const resetOrigin = () => {
+    setCurrent(defaultCurrent)
+  };
 
   const handleStartTravel = () => {
     if (!navigator.geolocation) return alert('Geolocation not supported');
@@ -122,41 +124,84 @@ export default function MapComponent() {
     setTravelMarkerPos(null);
   };
 
-  const simulateTravel = async () => {
-    if (!current || !target) return alert('Set both origin and destination.');
-    setSimulating(true);
+ const simulateTravel = async () => {
+  if (!current || !target) return alert('Set both origin and destination.');
+  setSimulating(true);
 
-    const res = await fetch(`https://router.project-osrm.org/route/v1/driving/${current.lng},${current.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`);
-    const data = await res.json();
-    const path = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+  const res = await fetch(
+    `https://router.project-osrm.org/route/v1/driving/${current.lng},${current.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`
+  );
+  const data = await res.json();
 
-    const steps = path.length;
-    const interval = 5000 / steps ;
-    let i = 0;
-    simulationRef.current = setInterval(() => {
-      if (i >= steps) {
-        clearInterval(simulationRef.current);
-        simulationRef.current = null;
-        setSimulating(false);
-      } else {
-        setTravelMarkerPos(path[i]);
-        i++;
-      }
-    }, interval);
+  const fullPath = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
+
+  // Sample a max of 20 steps
+  const maxSteps = 20;
+  const totalSteps = fullPath.length;
+  const stepInterval = Math.max(1, Math.floor(totalSteps / maxSteps));
+
+  const sampledPath = [];
+  for (let i = 0; i < totalSteps; i += stepInterval) {
+    sampledPath.push(fullPath[i]);
+  }
+
+  // Ensure the last point is included (destination)
+  if (sampledPath[sampledPath.length - 1] !== fullPath[totalSteps - 1]) {
+    sampledPath.push(fullPath[totalSteps - 1]);
+  }
+
+  let i = 0;
+  const interval = 500; // milliseconds between each simulated move
+  simulationRef.current = setInterval(() => {
+    if (i >= sampledPath.length) {
+      clearInterval(simulationRef.current);
+      simulationRef.current = null;
+      setSimulating(false);
+    } else {
+      setTravelMarkerPos(sampledPath[i]);
+      i++;
+    }
+  }, interval);
+};
+
+  const isSameLocation = (loc1, loc2) => {
+  if (!loc1 || !loc2) return false;
+  return loc1.lat === loc2.lat && loc1.lng === loc2.lng;
   };
-
+  
   return (
     <div className="relative w-full h-screen" style={{ height: '100vh' }}>
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 bg-white p-4 rounded shadow-md w-96 space-y-2">
+      <div style={{zIndex:999}} className="absolute top-4 right-4 z-50 space-y-2">
         {isRouting && (
-          <PlaceSearchInput label="Edit origin..." onFind={handleTempOriginChange} defaultValue={defaultCurrent} />
+          <PlaceSearchInput
+            label="Edit origin..."
+            onFind={handleTempOriginChange}
+            defaultValue={current}
+          />
         )}
-        <PlaceSearchInput label="Search destination..." onFind={handleFind} />
+
+        <PlaceSearchInput
+          label="Search destination..."
+          onFind={handleFind}
+          defaultValue={target}
+        />
+
+                
 
         <div className="flex flex-wrap justify-center gap-2">
-          <button onClick={handleDirection} className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700">Get Directions</button>
+          <button onClick={handleDirection} className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Get Directions</button>
+
           {isRouting && (
-            <button onClick={resetOrigin} className="bg-gray-400 text-white px-4 py-1 rounded hover:bg-gray-500">Reset Origin</button>
+            <button
+              onClick={resetOrigin}
+              disabled={isSameLocation(current, defaultCurrent)}
+              className={`px-4 py-1 rounded text-white
+                ${isSameLocation(current, defaultCurrent)
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-gray-400 hover:bg-gray-500'}`}
+            >
+              Your Location
+            </button>
           )}
           {!isTraveling && !simulating && (
             <button onClick={handleStartTravel} className="bg-blue-600 text-white px-4 py-1 rounded hover:bg-blue-700">Start Travel</button>
@@ -168,7 +213,6 @@ export default function MapComponent() {
             <button onClick={simulateTravel} className="bg-purple-600 text-white px-4 py-1 rounded hover:bg-purple-700">Simulate Travel</button>
           )}
         </div>
-        <p className="text-xs text-gray-500 text-center">* Simulate travel follows the actual route over 5 seconds.</p>
       </div>
 
       {current ? (

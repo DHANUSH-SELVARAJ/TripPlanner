@@ -1,3 +1,4 @@
+import { jwtDecode } from 'jwt-decode';
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -31,7 +32,7 @@ export default function LoginPage() {
   }, []);
 
   const handleCallback = (response) => {
-    const userObject = jwt_decode(response.credential);
+    const userObject = jwtDecode(response.credential);
     console.log(userObject); // You’ll see name, email, picture, etc.
   
     // Save the user in sessionStorage
