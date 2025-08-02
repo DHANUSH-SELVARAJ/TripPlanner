@@ -165,7 +165,7 @@ export default function SideBar() {
   const modeRoute = routeDetails[selectedMode];
   if (!modeRoute) return showAlert("Route details unavailable for selected mode.");
 
-   dispatch(setIsTraveling(true));
+  //  dispatch(setIsTraveling(true));
    dispatch(setSimulating(true))
 
   const path = modeRoute.geometry; // geometry already contains { lat, lng, name, place_id }
