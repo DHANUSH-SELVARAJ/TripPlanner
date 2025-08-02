@@ -22,4 +22,17 @@ export default defineConfig({
   optimizeDeps: {
     include: ['crypto-browserify', 'stream-browserify', 'buffer'],
   },
+  server: {
+    proxy: {
+      '/nominatim': {
+        target: 'https://nominatim.openstreetmap.org',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/nominatim/, ''),
+        headers: {
+          'User-Agent': 'TripPlanner/1.0 (mr.dhanushselvaraj@gmail.com)',
+          'Accept-Language': 'en'
+        }
+      }
+    }
+  }
 });

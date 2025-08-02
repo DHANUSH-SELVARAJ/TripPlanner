@@ -1,116 +1,107 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Select from 'react-select';
 
-export default function PlaceSearchInput({ onFind, label = 'Enter location...', defaultValue }) {
+export default function PlaceSearchInput({ onFind, label = 'Enter location...', value }) {
   const [options, setOptions] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [selectedOption, setSelectedOption] = useState(null);
+  const [loading, setLoading] = useState(false);
   const debounceRef = useRef(null);
 
-  // Set default if provided (reverse geocode)
+  // Add default "Your Location" option when input is empty
+  const defaultOptions = inputValue.trim() === ''
+    ? [
+        {
+          value: 'your-location',
+          label: '📍 Your Location',
+          location: null,
+        },
+      ]
+    : [];
+
   useEffect(() => {
-    if (defaultValue) {
-      reverseGeocode(defaultValue.lat, defaultValue.lng).then((place) => {
-        if (place) {
-          const option = {
-            value: place.place_id || 'default',
-            label: place.display_name,
-            location: {
-              lat: defaultValue.lat,
-              lng: defaultValue.lng,
-              name: place.display_name,
-            },
-          };
-          setSelectedOption(option);
-        }
-      });
+    if (value) {
+      setInputValue(value.name || '');
+    } else {
+      setInputValue('');
     }
-  }, [defaultValue]);
+  }, [value]);
 
-
-  const reverseGeocode = async (lat, lon) => {
+  const fetchSuggestions = async (query) => {
+    if (!query.trim()) {
+      setOptions([]);
+      return;
+    }
+    setLoading(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`
+      const res = await fetch(`/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+      const data = await res.json();
+      setOptions(
+        data.map((item) => ({
+          value: item.place_id,
+          label: item.display_name,
+          location: {
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            name: item.display_name,
+          },
+        }))
       );
-      return await res.json();
     } catch (err) {
-      console.error('Reverse geocoding failed:', err);
-      return null;
+      console.error('Fetch error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const [loading, setLoading] = useState(false);
-
-const fetchSuggestions = async (query) => {
-  if (!query.trim()) return setOptions([]);
-  setLoading(true);
-  try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`
-    );
-    const data = await res.json();
-
-    const mapped = data.map((item) => ({
-      value: item.place_id,
-      label: item.display_name,
-      location: {
-        lat: parseFloat(item.lat),
-        lng: parseFloat(item.lon),
-        name: item.display_name,
-      },
-    }));
-
-    setOptions(mapped);
-  } catch (err) {
-    console.error('Fetch error:', err);
-    setOptions([]);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
-  const handleInputChange = (value) => {
-    setInputValue(value);
+  const handleInputChange = (val) => {
+    setInputValue(val);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      fetchSuggestions(value);
-    }, 500);
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 500);
   };
 
   const handleSelect = (option) => {
-    setSelectedOption(option);
-    if (option?.location) {
-      onFind(option.location);
+    if (option?.value === 'your-location') {
+      // Get current location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const location = {
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              name: 'Your Location',
+            };
+            onFind(location);
+          },
+          (err) => {
+            alert('Unable to get your current location.');
+            console.error(err);
+          }
+        );
+      } else {
+        alert('Geolocation is not supported by your browser.');
+      }
+    } else {
+      onFind(option?.location || null);
     }
   };
 
   return (
-  <Select
-    placeholder={label}
-    inputValue={inputValue}
-    value={selectedOption}
-    onInputChange={handleInputChange}
-    onChange={handleSelect}
-    options={options}
-    isClearable
-    styles={{
-      container: (base) => ({
-        ...base,
-        width: '100%', // fixed width here, change as needed
-      }),
-      menu: (base) => ({
-        ...base,
-        zIndex: 9999,
-      }),
-    }}
-    noOptionsMessage={() => {
-      if (loading) return 'Searching...';
-      if (inputValue) return 'No results found';
-      return 'Type to search';
-    }}
-  />
-
+    <Select
+      className="w-[100%]"
+      placeholder={label}
+      inputValue={inputValue}
+      value={
+        value
+          ? { label: value.name, value: value.place_id || 'selected' }
+          : null
+      }
+      onInputChange={handleInputChange}
+      onChange={handleSelect}
+      options={[...defaultOptions, ...options]}
+      isClearable
+      noOptionsMessage={() =>
+        loading ? 'Searching...' : 'No results found'
+      }
+    />
   );
 }

@@ -2,14 +2,14 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   current: null,
-  defaultCurrent: null,
+  simulatingLocation:null,
   target: null,
-  shouldRoute: false,
   isRouting: false,
   isTraveling: false,
   simulating: false,
-  travelMarkerPos: null,
-  routePath: [],  
+  lastSearchedPlace: null,
+  liveLocation: null,
+   mode: 'driving',
 };
 
 const mapSlice = createSlice({
@@ -19,14 +19,11 @@ const mapSlice = createSlice({
     setCurrent(state, action) {
       state.current = action.payload;
     },
-    setDefaultCurrent(state, action) {
-      state.defaultCurrent = action.payload;
+    setSimulatingLocation(state, action) {
+      state.simulatingLocation = action.payload;
     },
     setTarget(state, action) {
       state.target = action.payload;
-    },
-    setShouldRoute(state, action) {
-      state.shouldRoute = action.payload;
     },
     setIsRouting(state, action) {
       state.isRouting = action.payload;
@@ -37,25 +34,28 @@ const mapSlice = createSlice({
     setSimulating(state, action) {
       state.simulating = action.payload;
     },
-    setTravelMarkerPos(state, action) {
-      state.travelMarkerPos = action.payload;
+    setLastSearchedPlace(state, action) {
+    state.lastSearchedPlace = action.payload;
     },
-    resetOrigin(state) {
-      state.current = state.defaultCurrent;
+    setLiveLocation(state, action) {
+    state.liveLocation = action.payload;
+    },
+    setMode(state, action) {
+    state.mode = action.payload;
     },
   },
 });
 
 export const {
   setCurrent,
-  setDefaultCurrent,
   setTarget,
-  setShouldRoute,
   setIsRouting,
   setIsTraveling,
   setSimulating,
-  setTravelMarkerPos,
-  resetOrigin,
+  setLastSearchedPlace, 
+  setLiveLocation,
+  setSimulatingLocation,
+  setMode
 } = mapSlice.actions;
 
 export default mapSlice.reducer;

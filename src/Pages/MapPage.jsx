@@ -1,27 +1,66 @@
-import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import MapComponent from '../components/MapComponent';
-import SideBar from '../components/Sidebar';
-import TopBar from '../components/TopMenuBar';
+import React, { useEffect, useState } from "react";
+import MapComponent from "../components/MapComponent";
+import SideBar from "../components/Sidebar";
+import TopBar from "../components/TopMenuBar";
+import LocationPermissionNotice from "../components/LocationPermissionNotice";
 
 export default function MapPage() {
-  const navigate = useNavigate();
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false); // For mobile toggle
 
   useEffect(() => {
-    const user = sessionStorage.getItem('user');
-    if (!user) navigate('/');
-  }, [navigate]);
+    navigator.geolocation.getCurrentPosition(
+      () => {
+        setPermissionDenied(false);
+        setPermissionChecked(true);
+      },
+      (err) => {
+        if (err.code === err.PERMISSION_DENIED) {
+          setPermissionDenied(true);
+          setPermissionChecked(true);
+        }
+      }
+    );
+  }, []);
 
-  return (
-    <div className="h-screen flex flex-col">
-      {/* Top Navigation */}
-      <TopBar />
+ return (
+    <div className="h-screen flex flex-col relative">
+      {/* Fixed TopBar */}
+      <TopBar onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-      {/* Sidebar + Map */}
-      <div className="flex flex-1">
-        <SideBar />
-        <MapComponent />
-      </div>
+      {!permissionChecked ? (
+        <div className="flex-grow flex items-center justify-center">
+          <p className="text-lg text-gray-700">Checking location permission...</p>
+        </div>
+      ) : permissionDenied ? (
+        <div className="flex-grow flex items-center justify-center bg-red-50">
+          <LocationPermissionNotice />
+        </div>
+      ) : (
+        <div className="flex-1 relative">
+         
+             {/* Sidebar overlay (doesn't shrink map) */}
+            
+            <SideBar closeSidebar={() => setIsSidebarOpen(false)} />
+            
+             
+             {/* Map always full size */}
+          <div className="absolute inset-0 z-0 ">
+            <MapComponent />
+          </div>
+
+          
+
+          {/* Mobile overlay background */}
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black bg-opacity-40 md:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,30 +1,111 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { FaUserCircle } from 'react-icons/fa';
+import Logo from '../assets/logo.png';
+import { compressImage } from '../Utilites/helper';
 
 export default function TopMenuBar() {
-  const user = JSON.parse(sessionStorage.getItem('user'));
+  const [showMenu, setShowMenu] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const currentEmail = localStorage.getItem('currentUserEmail');
+  const users = JSON.parse(localStorage.getItem('users') || '[]');
+  const userIndex = users.findIndex(u => u.email === currentEmail);
+  const user = userIndex !== -1 ? users[userIndex] : null;
+
+  const handleLogout = () => {
+    localStorage.removeItem('currentUserEmail');
+    window.location.reload();
+  };
+
+  const handlePhotoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file || !user) return;
+
+    compressImage(file, (compressedBase64) => {
+      users[userIndex].profile.picture = compressedBase64;
+      localStorage.setItem("users", JSON.stringify(users));
+      window.location.reload();
+    });
+  };
 
   return (
-    <header className="bg-gray-900 text-white h-14 flex items-center justify-between px-6 shadow-md">
-      {/* Left: Logo or App Title */}
-      <div className="text-lg font-semibold tracking-wide">
-        🚗 Trip Planner
+    <header className="bg-blue-700 text-white h-14 flex items-center justify-between px-4 sm:px-6 shadow-md relative">
+      {/* Left: Logo + Title */}
+      <div className="flex items-center gap-2 sm:gap-3 font-bold tracking-wide">
+        <img src={Logo} alt="Logo" className="w-6 h-6 sm:w-7 sm:h-7" />
+        <span className="text-sm sm:text-base md:text-lg">TRIP PLANNER</span>
       </div>
 
       {/* Right: User Info */}
-      <div className="flex items-center gap-3">
-        <span className="text-sm hidden sm:inline">
+      <div className="flex items-center gap-2 sm:gap-3 relative">
+        {/* Username - Visible on desktop only */}
+        <span className="hidden sm:block text-sm sm:text-base font-semibold tracking-wide">
           {user?.name || 'Guest'}
         </span>
-        {user?.picture ? (
+
+        {/* Avatar */}
+        {user?.profile?.picture ? (
           <img
-            src={user.picture}
+            src={user?.profile?.picture}
             alt="User Avatar"
-            className="w-8 h-8 rounded-full border-2 border-white shadow-sm"
+            className="w-8 h-8 rounded-full border-2 border-white shadow-sm cursor-pointer"
+            tabIndex={0}
+            onClick={() => setShowMenu(prev => !prev)}
+            onBlur={() => setShowMenu(false)}
           />
         ) : (
-          <FaUserCircle size={28} />
+          <FaUserCircle
+            size={28}
+            className="cursor-pointer"
+            onClick={() => setShowMenu(prev => !prev)}
+          />
         )}
+
+        {/* Dropdown Menu */}
+        <div
+          className={`absolute top-12 right-0 bg-white rounded-xl shadow-xl border border-gray-100 
+          w-44 sm:w-48 overflow-hidden transition-all duration-300 ease-in-out
+          ${showMenu ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 -translate-y-2 pointer-events-none"}`}
+          style={{ zIndex: 999 }}
+        >
+          {/* Mobile-only name */}
+          <div className="block sm:hidden px-5 py-3 text-sm font-medium text-gray-800 border-b border-gray-100">
+            👤 {user?.name || 'Guest'}
+          </div>
+
+          {/* Upload Photo */}
+          <button
+            onClick={() => {
+              fileInputRef.current.click();
+              setShowMenu(false);
+            }}
+            className="w-full text-left px-5 py-3 text-sm font-medium text-gray-700 
+                      hover:bg-gradient-to-r hover:from-blue-50 hover:to-blue-100 hover:text-blue-600 
+                      transition-colors duration-200"
+          >
+            📷 Upload Photo
+          </button>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handlePhotoUpload}
+          />
+
+          {/* Logout */}
+          <button
+            onClick={() => {
+              setShowMenu(false);
+              handleLogout();
+            }}
+            className="w-full text-left px-5 py-3 text-sm font-medium text-gray-700 
+                      hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100 hover:text-red-600 
+                      transition-colors duration-200"
+          >
+            🚪 Logout
+          </button>
+        </div>
       </div>
     </header>
   );

@@ -1,10 +1,10 @@
 import { configureStore } from '@reduxjs/toolkit';
 import mapReducer from './mapSlice';
+import sidebarReducer from './sidebarSlice';
 
-const store = configureStore({
+export const store = configureStore({
     reducer: {
         map: mapReducer,
+        sidebar: sidebarReducer,
     },
 });
-
-export default store;

@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
 #root{
-    height: 90vh;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.user-photo {
+  border-radius: 50% !important;
+  border: 1.5px solid white !important;   /* white border */
+  background-color: #3b82f6 !important; /* blue background (Tailwind blue-500) */
+  width: 32px !important;
+  height: 32px !important;
+  object-fit: cover !important;
+  box-sizing: border-box;
+  box-shadow: 0 0 9px 1px black !important;
 }

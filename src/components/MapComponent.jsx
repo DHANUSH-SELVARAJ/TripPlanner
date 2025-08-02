@@ -1,72 +1,90 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Marker, useMap} from 'react-leaflet';
+import React, { useEffect, useState } from 'react';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useSelector, useDispatch } from 'react-redux';
 import RoutingMachine from './RoutingMachine';
 import locationPin from '../assets/locationPin.png';
+import PlaceSearchInput from './PlaceSearchInput';
+import DefaultLapLocationGif from '../assets/home.gif';
+import {
+  setCurrent,
+  setLastSearchedPlace,
+  setLiveLocation
+} from '../store/mapSlice';
+import { setCollapse } from '../store/sidebarSlice';
 
-// Center map when target changes
+// Component to center map when position changes
 const MapCenterer = ({ position }) => {
   const map = useMap();
-
   useEffect(() => {
-    if (position)
-      map.flyTo([position.lat, position.lng], 14, {
-        animate: true,
-        duration: 1.5, // seconds
-      });
+    if (position) {
+      map.flyTo([position.lat, position.lng], 14, { animate: true, duration: 1.5 });
+    }
   }, [position, map]);
-
   return null;
 };
 
-// Reverse geocode function unchanged, could also move to Redux thunk if needed
+let lastReverseGeocodeTime = 0;
 const reverseGeocode = async ({ lat, lng }) => {
+  const now = Date.now();
+  if (now - lastReverseGeocodeTime < 5000) return null;
+  lastReverseGeocodeTime = now;
+
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-    );
+    const res = await fetch(`/nominatim/reverse?format=json&lat=${lat}&lon=${lng}`);
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
     const data = await res.json();
     return {
       lat,
       lng,
       name: data.display_name,
-      place_id: data.place_id || `${lat},${lng}`,
+      place_id: data.place_id || `${lat},${lng}`
     };
   } catch (error) {
-    console.error('Reverse geocoding failed:', error);
+    console.error("Reverse geocoding failed:", error);
     return null;
   }
 };
 
+
+// User marker icon
+const userPhotoIcon = (userPhoto) =>
+  L.icon({
+    iconUrl: userPhoto,
+    iconSize: [32, 32],
+    className: 'user-photo',
+  });
+
 export default function MapComponent() {
   const dispatch = useDispatch();
-
-  // Get state from redux
   const current = useSelector((state) => state.map.current);
-  const defaultCurrent = useSelector((state) => state.map.defaultCurrent);
   const target = useSelector((state) => state.map.target);
-  const shouldRoute = useSelector((state) => state.map.shouldRoute);
   const isRouting = useSelector((state) => state.map.isRouting);
-  const routePath = useSelector(state => state.map.routePath);
+  const isSimulating = useSelector((state) => state.map.simulating);
+  const simulatingLocation = useSelector((state) => state.map.simulatingLocation);
+  const isSideBarCollapse = useSelector((state) => state.sidebar.isCollapsed);
+  const [lastSearched, setLastSearched] = useState(null);
 
-  // Local states for travel and simulation tracking
-  const [isTraveling, setIsTraveling] = useState(false);
-  const [simulating, setSimulating] = useState(false);
-  const [travelMarkerPos, setTravelMarkerPos] = useState(null);
+  function getCurrentUserProfile() {
+    const currentEmail = localStorage.getItem('currentUserEmail');
+    if (!currentEmail) return null;
+    const users = JSON.parse(localStorage.getItem('users') || '[]');
+    return users.find(u => u.email === currentEmail) || null;
+  }
 
-  const travelWatchId = useRef(null);
-  const simulationRef = useRef(null);
+  const user = getCurrentUserProfile();
+  const userPhoto = user?.profile?.picture || user?.picture || DefaultLapLocationGif;
 
-  // On mount, get current location and dispatch to redux
+  // Initial geolocation
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const resolved = await reverseGeocode(coords);
         if (resolved) {
-          dispatch({ type: 'map/setCurrent', payload: resolved });
-          dispatch({ type: 'map/setDefaultCurrent', payload: resolved });
+          dispatch(setCurrent(resolved));
+          dispatch(setLiveLocation(resolved));
         }
       },
       (err) => {
@@ -76,143 +94,62 @@ export default function MapComponent() {
     );
   }, [dispatch]);
 
-  // User photo from session
-  const user = JSON.parse(sessionStorage.getItem('user'));
-  const userPhoto = user?.picture;
-
-  // Functions previously used inside component, now dispatch to redux
-  const resetOrigin = () => {
-    dispatch({ type: 'map/setCurrent', payload: defaultCurrent });
-  };
-
-  const handleDirection = () => {
-    if (!current || !target) return alert('Set both origin and destination.');
-    dispatch({ type: 'map/setShouldRoute', payload: true });
-    dispatch({ type: 'map/setIsRouting', payload: true });
-  };
-
-  const isSameLocation = (loc1, loc2) => {
-    if (!loc1 || !loc2) return false;
-    return loc1.lat === loc2.lat && loc1.lng === loc2.lng;
-  };
-
-  // Travel handlers
-  const handleStartTravel = () => {
-    if (!navigator.geolocation) return alert('Geolocation not supported');
-
-    setIsTraveling(true);
-    travelWatchId.current = navigator.geolocation.watchPosition(
-      (pos) => setTravelMarkerPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      (err) => {
-        console.error('Live tracking error:', err);
-        alert('Failed to get position for travel.');
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    );
-  };
-
-  const stopTravel = () => {
-    if (travelWatchId.current !== null) {
-      navigator.geolocation.clearWatch(travelWatchId.current);
-      travelWatchId.current = null;
-    }
-    if (simulationRef.current) {
-      clearInterval(simulationRef.current);
-      simulationRef.current = null;
-    }
-    setIsTraveling(false);
-    setSimulating(false);
-    setTravelMarkerPos(null);
-  };
-
-  // Travel simulation logic unchanged
-  const simulateTravel = async () => {
-    if (!current || !target) return alert('Set both origin and destination.');
-    setSimulating(true);
-
-    const res = await fetch(
-      `https://router.project-osrm.org/route/v1/driving/${current.lng},${current.lat};${target.lng},${target.lat}?overview=full&geometries=geojson`
-    );
-    const data = await res.json();
-
-    const fullPath = data.routes[0].geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-
-    // Sample max 20 steps
-    const maxSteps = 20;
-    const totalSteps = fullPath.length;
-    const stepInterval = Math.max(1, Math.floor(totalSteps / maxSteps));
-
-    const sampledPath = [];
-    for (let i = 0; i < totalSteps; i += stepInterval) {
-      sampledPath.push(fullPath[i]);
-    }
-    // Ensure last point
-    if (sampledPath[sampledPath.length - 1] !== fullPath[totalSteps - 1]) {
-      sampledPath.push(fullPath[totalSteps - 1]);
-    }
-
-    let i = 0;
-    const interval = 500;
-    simulationRef.current = setInterval(() => {
-      if (i >= sampledPath.length) {
-        clearInterval(simulationRef.current);
-        simulationRef.current = null;
-        setSimulating(false);
-      } else {
-        setTravelMarkerPos(sampledPath[i]);
-        i++;
-      }
-    }, interval);
-  };
-
   return (
-    <div className="relative w-full h-screen" style={{ height: '100vh' }}>
-      {/* Removed buttons from here - buttons should be handled in sidebar */}
+    <div className="relative w-full h-full">
+      {/* Floating search box when sidebar is collapsed */}
+      {isSideBarCollapse && (
+        <div className="absolute md:top-2 md:left-80px right-4 md:left-20 md:right-auto md:w-[400px]  w-[100%] left-0  p-2 rounded shadow-md bg-white flex gap-2 z-999">
+          <PlaceSearchInput
+            label="Search on map..."
+            value={target}
+            onFind={(location) => {
+              dispatch(setLastSearchedPlace(location));
+              setLastSearched(location);
+            }}
+          />
+          <button
+            disabled={!lastSearched}
+            className="p-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => {
+              if (!lastSearched) return;
+              dispatch(setCollapse(false));
+              dispatch({ type: 'map/setTarget', payload: lastSearched });
+            }}
+            title="Get Directions"
+            aria-label="Get Directions"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16M14 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      )}
 
-      {/* Show map only if current position available */}
       {current ? (
-        <MapContainer center={[current.lat, current.lng]} zoom={13} style={{ height: '100%' }}>
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+        <MapContainer
+          center={[current.lat, current.lng]}
+          zoom={13}
+          style={{ height: '100%' }}
+          zoomControl={false}
+          attributionControl={false}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-          {/* Current position marker */}
-          <Marker
-            position={[current.lat, current.lng]}
-            icon={L.icon({
-              iconUrl: userPhoto,
-              iconSize: [32, 32],
-            })}
-          />
+          {/* Markers */}
+          {userPhoto && <Marker position={[current.lat, current.lng]} icon={userPhotoIcon(userPhoto)} />}
+          {target && <Marker position={[target.lat, target.lng]} icon={L.icon({ iconUrl: locationPin, iconSize: [32, 32] })} />}
+          {lastSearched && !target && <Marker position={[lastSearched.lat, lastSearched.lng]} icon={L.icon({ iconUrl: locationPin, iconSize: [32, 32] })} />}
+          {userPhoto && isSimulating && simulatingLocation && <Marker position={[simulatingLocation.lat, simulatingLocation.lng]} icon={userPhotoIcon(userPhoto)} />}
 
-          {/* Target position marker */}
-          {target && (
-            <Marker
-              position={[target.lat, target.lng]}
-              icon={L.icon({
-                iconUrl: locationPin,
-                iconSize: [32, 32],
-              })}
-            />
-          )}
-
-          {/* Marker for live travel position */}
-          {travelMarkerPos && (
-            <Marker
-              position={[travelMarkerPos.lat, travelMarkerPos.lng]}
-              icon={L.icon({
-                iconUrl: userPhoto,
-                iconSize: [32, 32],
-              })}
-            />
-          )}
-
-          {/* Fly map to target */}
-          {target && <MapCenterer position={target} />}
-
-          {/* Routing if needed */}
-          {shouldRoute && <RoutingMachine current={current} target={target} />}
+          {/* Map behavior */}
+          {lastSearched && <MapCenterer position={lastSearched} />}
+          {current && <MapCenterer position={current} />}
+          {isRouting && <RoutingMachine current={current} target={target} />}
         </MapContainer>
       ) : (
         <div className="flex justify-center items-center h-full text-gray-600">
