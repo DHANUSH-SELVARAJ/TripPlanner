@@ -2,9 +2,9 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import PrivateRoute from './Route/PrivateRoute';
-import MapPage from './pages/MapPage';
 import LoginPage from './pages/LoginPage';
 import Register from './pages/Register';
+import MapPage from './pages/MapPage';
 
 export default function App() {
   return (
@@ -22,7 +22,7 @@ export default function App() {
           path="/map"
           element={
             <PrivateRoute>
-              <MapPage />
+              <MapPage/>
             </PrivateRoute>
           }
         />
