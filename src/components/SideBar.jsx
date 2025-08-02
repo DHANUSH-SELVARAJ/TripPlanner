@@ -196,13 +196,7 @@ export default function SideBar() {
     }
   }, 5000);
 };
-
-
-   useEffect(() => {
-      console.log(current,"sidebar");
-    },[current])
-  
-  
+    
   const canStartTravel = () =>
     current && liveLocation && target &&
     Math.abs(current.lat - liveLocation.lat) < 0.0001 &&
