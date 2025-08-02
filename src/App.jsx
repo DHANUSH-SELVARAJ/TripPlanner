@@ -1,10 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-import PrivateRoute from './Route/PrivateRoute';
-import LoginPage from './pages/LoginPage';
-import Register from './pages/Register';
-import MapPage from './pages/MapPage';
+import PrivateRoute from './Route/PrivateRoute.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import Register from './pages/Register.jsx';
+import MapPage from './pages/MapPage.jsx';
 
 export default function App() {
   return (

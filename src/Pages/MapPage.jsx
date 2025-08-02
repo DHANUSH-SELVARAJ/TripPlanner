@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import MapComponent from "../components/MapComponent";
-import SideBar from "../components/Sidebar";
-import TopBar from "../components/TopMenuBar";
-import LocationPermissionNotice from "../components/LocationPermissionNotice";
+import MapComponent from "../components/MapComponent.jsx";
+import SideBar from "../components/SideBar.jsx";
+import TopBar from "../components/TopMenuBar.jsx";
+import LocationPermissionNotice from "../components/LocationPermissionNotice.jsx";
 
 export default function MapPage() {
   const [permissionDenied, setPermissionDenied] = useState(false);
