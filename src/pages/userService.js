@@ -22,31 +22,38 @@ export function setCurrentUser(email) {
 export function logout() {
     localStorage.removeItem('currentUserEmail');
 }
-
 export function register({ email, password, name, profile = {}, isSSO = false }) {
+    const normalizeEmail = (e) => e.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
+
     const users = getUsers();
-    if (users.some(u => u.email === email)) {
+    if (users.some(u => normalizeEmail(u.email) === normalizedEmail)) {
         return false; // user exists
     }
-    users.push({ email, password, name, profile, isSSO });
+
+    users.push({ email: normalizedEmail, password, name, profile, isSSO });
     saveUsers(users);
-    setCurrentUser(email);
+    setCurrentUser(normalizedEmail);
     return true;
 }
 
 export function login(email, password) {
+    const normalizeEmail = (e) => e.trim().toLowerCase();
+
     const users = getUsers();
-    const user = users.find(u => u.email === email);
+    const user = users.find(u => normalizeEmail(u.email) === normalizeEmail(email));
+
     if (!user) return false;
 
     if (user.isSSO) {
-        setCurrentUser(email);
+        setCurrentUser(user.email);
         return true; // no password needed for SSO
     }
 
     if (user.password === password) {
-        setCurrentUser(email);
+        setCurrentUser(user.email);
         return true;
     }
+
     return false;
 }
