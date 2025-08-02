@@ -37,7 +37,6 @@ export default function SideBar() {
     dispatch(setTarget(location));
   }
   const handleSetCurrent = (location) => {
-    stopTravel();
     location && dispatch(setCurrent(location));
   }
 
@@ -94,7 +93,7 @@ export default function SideBar() {
     if ((simulating && (current || target))) {
       stopTravel();
     }
-  }, [current, target]);
+  }, [target]);
 
   useEffect(() => {
     stopTravel();
@@ -166,7 +165,8 @@ export default function SideBar() {
   const modeRoute = routeDetails[selectedMode];
   if (!modeRoute) return showAlert("Route details unavailable for selected mode.");
 
-  dispatch(setIsTraveling(true));
+   dispatch(setIsTraveling(true));
+   dispatch(setSimulating(true))
 
   const path = modeRoute.geometry; // geometry already contains { lat, lng, name, place_id }
    totalDurationRef.current = modeRoute.duration;
@@ -401,7 +401,7 @@ export default function SideBar() {
             {isCollapsed ? <FaChevronLeft className="rotate-90" /> : <FaChevronLeft className="-rotate-90" />}
           </button>
         </div>
-        <div className={` h-450 overflow-scroll`}>
+        <div style={{height:'450px',overflow:'scroll'}}>
           {!isCollapsed && renderContent(true)} 
         </div>
       </div>

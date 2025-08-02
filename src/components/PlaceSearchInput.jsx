@@ -3,49 +3,54 @@ import Select from 'react-select';
 
 export default function PlaceSearchInput({ onFind, label = 'Enter location...', value }) {
   const [options, setOptions] = useState([]);
-  const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef(null);
 
-  // Add default "Your Location" option when input is empty
-  const defaultOptions = inputValue.trim() === ''
-    ? [
-        {
-          value: 'your-location',
-          label: '📍 Your Location',
-          location: null,
-        },
-      ]
-    : [];
+  const defaultOptions = [
+    {
+      value: 'your-location',
+      label: '📍 Your Location',
+      location: null,
+    },
+  ];
 
+  // ✅ Keep selected option in options list when value changes externally
   useEffect(() => {
-    if (value) {
-      setInputValue(value.name || '');
-    } else {
-      setInputValue('');
+    if (value && value.name) {
+      const selectedOption = {
+        label: value.name,
+        value: value.place_id || 'selected',
+        location: value,
+      };
+      setOptions((prev) => {
+        const exists = prev.some((opt) => opt.value === selectedOption.value);
+        return exists ? prev : [selectedOption, ...prev];
+      });
     }
   }, [value]);
 
   const fetchSuggestions = async (query) => {
     if (!query.trim()) {
-      setOptions([]);
+      setOptions(defaultOptions);
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch(`/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
-      const data = await res.json();
-      setOptions(
-        data.map((item) => ({
-          value: item.place_id,
-          label: item.display_name,
-          location: {
-            lat: parseFloat(item.lat),
-            lng: parseFloat(item.lon),
-            name: item.display_name,
-          },
-        }))
+      const res = await fetch(
+        `/nominatim/search?format=json&q=${encodeURIComponent(query)}&limit=5`
       );
+      const data = await res.json();
+      const newOptions = data.map((item) => ({
+        value: item.place_id,
+        label: item.display_name,
+        location: {
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+          name: item.display_name,
+          place_id: item.place_id,
+        },
+      }));
+      setOptions([...defaultOptions, ...newOptions]);
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -53,15 +58,13 @@ export default function PlaceSearchInput({ onFind, label = 'Enter location...', 
     }
   };
 
-  const handleInputChange = (val) => {
-    setInputValue(val);
+  const handleInputChange = (inputValue) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchSuggestions(val), 500);
+    debounceRef.current = setTimeout(() => fetchSuggestions(inputValue), 500);
   };
 
   const handleSelect = (option) => {
     if (option?.value === 'your-location') {
-      // Get current location
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (pos) => {
@@ -87,21 +90,21 @@ export default function PlaceSearchInput({ onFind, label = 'Enter location...', 
 
   return (
     <Select
-      className="w-[100%]"
+      className="w-full"
       placeholder={label}
-      inputValue={inputValue}
       value={
         value
-          ? { label: value.name, value: value.place_id || 'selected' }
+          ? {
+              label: value.name,
+              value: value.place_id || 'selected',
+            }
           : null
       }
       onInputChange={handleInputChange}
       onChange={handleSelect}
-      options={[...defaultOptions, ...options]}
+      options={options}
       isClearable
-      noOptionsMessage={() =>
-        loading ? 'Searching...' : 'No results found'
-      }
+      noOptionsMessage={() => (loading ? 'Searching...' : 'No results found')}
     />
   );
 }

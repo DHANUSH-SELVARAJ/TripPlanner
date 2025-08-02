@@ -103,8 +103,8 @@ export default function MapComponent() {
             label="Search on map..."
             value={target}
             onFind={(location) => {
-              dispatch(setLastSearchedPlace(location));
               setLastSearched(location);
+              dispatch({ type: 'map/setTarget', payload: location });
             }}
           />
           <button
@@ -113,7 +113,6 @@ export default function MapComponent() {
             onClick={() => {
               if (!lastSearched) return;
               dispatch(setCollapse(false));
-              dispatch({ type: 'map/setTarget', payload: lastSearched });
             }}
             title="Get Directions"
             aria-label="Get Directions"
@@ -130,6 +129,18 @@ export default function MapComponent() {
         </div>
       )}
 
+      {isSimulating && (
+        <div
+          className="
+            fixed text-red-600 font-bold z-[1000]
+            md:bottom-4 md:right-4 md:text-2xl   /* Laptop/Desktop: bottom-right big */
+            top-28 right-2 text-lg               /* Mobile: top-right smaller */
+          "
+        >
+          Simulating
+        </div>
+      )}
+            
       {current ? (
         <MapContainer
           center={[current.lat, current.lng]}

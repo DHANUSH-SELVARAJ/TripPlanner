@@ -69,7 +69,7 @@ const RoutingMachine = ({ current, target }) => {
   return (
     <>
       {loading && (
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center z-999">
+          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-gray-500/50 z-999">
             <div className="flex space-x-2">
               <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
               <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
