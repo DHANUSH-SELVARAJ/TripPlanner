@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FaUserCircle } from 'react-icons/fa';
 import Logo from '../assets/logo.png';
-import { compressImage } from '../Utilites/helper';
+import { compressImage } from '../utilities/helper';
 
 export default function TopMenuBar() {
   const [showMenu, setShowMenu] = useState(false);

@@ -5,7 +5,8 @@ import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 import { register } from "./userService";
 import { FaUserCircle } from "react-icons/fa";
 import { formStyles as s } from "../styles/tailwind";
-import { compressImage } from "../Utilites/helper";
+import { compressImage } from '../utilities/helper';
+
 
 export default function Register() {
   const navigate = useNavigate();
