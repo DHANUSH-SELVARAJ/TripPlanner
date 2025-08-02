@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FaUserCircle } from 'react-icons/fa';
 import Logo from '../assets/logo.png';
 import { compressImage } from '../utilities/helper';
@@ -6,6 +6,7 @@ import { compressImage } from '../utilities/helper';
 export default function TopMenuBar() {
   const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef(null);
+  const menuRef = useRef(null);
 
   const currentEmail = localStorage.getItem('currentUserEmail');
   const users = JSON.parse(localStorage.getItem('users') || '[]');
@@ -28,6 +29,17 @@ export default function TopMenuBar() {
     });
   };
 
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
     <header className="bg-blue-700 text-white h-14 flex items-center justify-between px-4 sm:px-6 shadow-md relative">
       {/* Left: Logo + Title */}
@@ -37,7 +49,7 @@ export default function TopMenuBar() {
       </div>
 
       {/* Right: User Info */}
-      <div className="flex items-center gap-2 sm:gap-3 relative">
+      <div className="flex items-center gap-2 sm:gap-3 relative" ref={menuRef}>
         {/* Username - Visible on desktop only */}
         <span className="hidden sm:block text-sm sm:text-base font-semibold tracking-wide">
           {user?.name || 'Guest'}
@@ -49,9 +61,7 @@ export default function TopMenuBar() {
             src={user?.profile?.picture}
             alt="User Avatar"
             className="w-8 h-8 rounded-full border-2 border-white shadow-sm cursor-pointer"
-            tabIndex={0}
             onClick={() => setShowMenu(prev => !prev)}
-            onBlur={() => setShowMenu(false)}
           />
         ) : (
           <FaUserCircle
